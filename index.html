@@ -1,0 +1,1975 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DSO138mini Web Plotter</title>
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --panel: #121a23;
+            --panel2: #0f1620;
+            --text: #e7eef7;
+            --muted: #a9b6c6;
+            --accent: #5ee0a6;
+            --warn: #ffcc66;
+            --bad: #ff6b6b;
+            --grid: #233244;
+            --line: #7fb4ff;
+            --shadow: 0 12px 30px rgba(0, 0, 0, .35);
+            --headerH: 56px;
+            --drawerW: min(420px, 92vw);
+            --hudBg: rgba(18, 26, 35, 0.88);
+            --hudBr: rgba(35, 50, 68, 0.80);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, Segoe UI, Roboto, Arial;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            height: var(--headerH);
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 12px;
+            border-bottom: 1px solid #1b2634;
+            background: linear-gradient(180deg, #0e141c, transparent);
+            min-width: 0;
+            z-index: 20;
+        }
+
+        .title {
+            font-weight: 800;
+            letter-spacing: .2px;
+            white-space: nowrap;
+        }
+
+        .spacer {
+            flex: 1;
+            min-width: 0
+        }
+
+        .btn {
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid #233244;
+            padding: 8px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+
+        .btn:hover {
+            border-color: #2f4763
+        }
+
+        .btn.primary {
+            border-color: #2a6f54;
+            background: #103026;
+            color: #dffbf0
+        }
+
+        .btn.danger {
+            border-color: #6b2a2a;
+            background: #2a1212
+        }
+
+        .btn.small {
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 10px
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #444;
+        }
+
+        .dot.ok {
+            background: var(--accent)
+        }
+
+        .dot.bad {
+            background: var(--bad)
+        }
+
+        .tabs {
+            display: inline-flex;
+            border: 1px solid #233244;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0a0e14;
+        }
+
+        .tab {
+            padding: 7px 12px;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+            border: 0;
+            background: transparent;
+        }
+
+        .tab+.tab {
+            border-left: 1px solid #233244;
+        }
+
+        .tab.active {
+            color: var(--text);
+            background: rgba(94, 224, 166, 0.10);
+        }
+
+        .app {
+            flex: 1 1 auto;
+            min-height: 0;
+            min-width: 0;
+            position: relative;
+        }
+
+        .plotArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            padding: 10px;
+            min-height: 0;
+            min-width: 0;
+            transition: right .18s ease;
+        }
+
+        body.drawer-open .plotArea {
+            right: var(--drawerW);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            background: #070a0f;
+            border: 1px solid #1b2634;
+            border-radius: 18px;
+            display: block;
+        }
+
+        .drawer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: var(--drawerW);
+            background: var(--panel);
+            border-left: 1px solid #1b2634;
+            box-shadow: var(--shadow);
+            transform: translateX(100%);
+            transition: transform .18s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            z-index: 15;
+        }
+
+        body.drawer-open .drawer {
+            transform: translateX(0);
+        }
+
+        .drawerHandle {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translate(0, -50%);
+            width: 32px;
+            height: 120px;
+            border-radius: 14px 0 0 14px;
+            background: rgba(18, 26, 35, 0.92);
+            border: 1px solid rgba(35, 50, 68, 0.95);
+            border-right: none;
+            box-shadow: var(--shadow);
+            z-index: 16;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.drawer-open .drawerHandle {
+            display: none;
+        }
+
+        .drawerHandle .vert {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            letter-spacing: 1px;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 800;
+        }
+
+        .drawerHeader {
+            padding: 12px;
+            border-bottom: 1px solid #1b2634;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex: 0 0 auto;
+            gap: 10px;
+        }
+
+        .drawerBody {
+            padding: 12px;
+            overflow: auto;
+            min-height: 0;
+            display: grid;
+            gap: 12px;
+        }
+
+        .card {
+            background: var(--panel2);
+            border: 1px solid #1b2634;
+            border-radius: 16px;
+            overflow: visible;
+        }
+
+        .card .ch {
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid #1b2634;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .card .cb {
+            padding: 12px;
+            display: grid;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .row label {
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .row input[type="checkbox"] {
+            width: 16px;
+            height: 16px
+        }
+
+        .row input,
+        .row select,
+        .row button {
+            background: #0a0e14;
+            color: var(--text);
+            border: 1px solid #233244;
+            padding: 8px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.35
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 140px;
+            resize: vertical;
+            background: #070a0f;
+            color: var(--text);
+            border: 1px solid #1b2634;
+            border-radius: 12px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+        }
+
+        .toast {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            background: rgba(18, 26, 35, 0.92);
+            border: 1px solid #233244;
+            border-radius: 14px;
+            padding: 10px 12px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-8px);
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+            z-index: 14;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast .badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--warn);
+            box-shadow: 0 0 0 3px rgba(255, 204, 102, .18);
+        }
+
+        .toast .t1 {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 800;
+        }
+
+        .toast .t2 {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .measBtnMini {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            z-index: 14;
+            width: 38px;
+            height: 38px;
+            border-radius: 14px;
+            background: var(--hudBg);
+            border: 1px solid var(--hudBr);
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            font-size: 18px;
+        }
+
+        .measPanel {
+            position: absolute;
+            top: 18px;
+            right: 18px;
+            z-index: 14;
+            background: var(--hudBg);
+            border: 1px solid var(--hudBr);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            max-width: min(520px, 86vw);
+            display: none;
+        }
+
+        .measHead {
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            border-bottom: 1px solid rgba(35, 50, 68, 0.55);
+        }
+
+        .measHead .cap {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 340px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .measClose {
+            border: 1px solid #233244;
+            background: #0a0e14;
+            color: var(--text);
+            border-radius: 10px;
+            padding: 6px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .measBody {
+            padding: 10px 12px 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 18px;
+            row-gap: 6px;
+            font-size: 12px;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+            min-width: 260px;
+        }
+
+        .measLine {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .measLine .k {
+            color: var(--muted)
+        }
+
+        .measLine .v {
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .cursorHUD {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            z-index: 14;
+            background: var(--hudBg);
+            border: 1px solid var(--hudBr);
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+            padding: 8px 10px;
+            display: none;
+            gap: 4px;
+            min-width: 190px;
+        }
+
+        .cursorHUD .l {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .cursorHUD .k {
+            color: var(--muted)
+        }
+
+        .cursorHUD .v {
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        .hudBottom {
+            position: absolute;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+            z-index: 14;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            pointer-events: auto;
+        }
+
+        .hudBar {
+            background: var(--hudBg);
+            border: 1px solid var(--hudBr);
+            border-radius: 14px;
+            padding: 8px 10px;
+            box-shadow: var(--shadow);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            border: 1px solid #233244;
+            background: #0a0e14;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            color: var(--text);
+            opacity: .85;
+        }
+
+        .toggle input {
+            width: 16px;
+            height: 16px
+        }
+
+        .toggle.on {
+            opacity: 1;
+            border-color: #2f4763
+        }
+
+        .kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px;
+            padding: 2px 6px;
+            border: 1px solid #233244;
+            border-radius: 8px;
+            color: var(--text);
+            background: #0a0e14;
+        }
+
+        .hudHint {
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .miniSel {
+            background: #0a0e14;
+            color: var(--text);
+            border: 1px solid #233244;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .fftTip {
+            position: absolute;
+            z-index: 14;
+            pointer-events: none;
+            display: none;
+            padding: 6px 8px;
+            border-radius: 12px;
+            background: var(--hudBg);
+            border: 1px solid var(--hudBr);
+            box-shadow: var(--shadow);
+            font-size: 12px;
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="title">DSO138mini Plotter</div>
+
+        <div class="tabs" role="tablist" aria-label="Display Mode">
+            <button class="tab active" id="tabTime" role="tab" aria-selected="true">Time</button>
+            <button class="tab" id="tabFFT" role="tab" aria-selected="false">FFT</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <button class="btn primary" id="btnConn">Connect</button>
+
+        <div class="status">
+            <div class="dot" id="dot"></div>
+            <div id="statusText">Disconnected</div>
+        </div>
+    </header>
+
+    <div class="app">
+        <div class="plotArea">
+            <canvas id="scope"></canvas>
+
+            <div class="fftTip" id="fftTip">—</div>
+
+            <div class="toast" id="toast">
+                <div class="badge"></div>
+                <div>
+                    <div class="t1" id="toastTitle">New Capture</div>
+                    <div class="t2" id="toastSub">Updating graph…</div>
+                </div>
+            </div>
+
+            <div class="cursorHUD" id="cursorHUD">
+                <div class="l">
+                    <div class="k">Δt</div>
+                    <div class="v" id="c_dt">—</div>
+                </div>
+                <div class="l">
+                    <div class="k">1/Δt</div>
+                    <div class="v" id="c_invdt">—</div>
+                </div>
+                <div class="l">
+                    <div class="k">ΔV</div>
+                    <div class="v" id="c_dv">—</div>
+                </div>
+            </div>
+
+            <div class="measBtnMini" id="measMini" title="Measurements">📏</div>
+
+            <div class="measPanel" id="measPanel">
+                <div class="measHead">
+                    <div class="cap" id="capInfo">—</div>
+                    <button class="measClose" id="btnMeasClose">Close</button>
+                </div>
+                <div class="measBody" id="measBody"></div>
+            </div>
+
+            <div class="hudBottom">
+                <div class="hudBar" id="hudTime">
+                    <label class="toggle" id="tgl_t"><input type="checkbox" id="chk_t"> Cursor T (Δt)</label>
+                    <label class="toggle" id="tgl_v"><input type="checkbox" id="chk_v"> Cursor V (ΔV)</label>
+                    <span class="hudHint">Zoom: wheel | <span class="kbd">Shift</span> = Y zoom | Drag = pan | Drag cursors = move</span>
+                </div>
+
+                <div class="hudBar" id="hudFFT" style="display:none">
+                    <span class="hudHint">Window</span>
+                    <select id="fftWinBottom" class="miniSel">
+                        <option value="hann" selected>Hann</option>
+                        <option value="rect">Rectangular</option>
+                    </select>
+                    <span class="hudHint">Scale: dB | Zoom: wheel | Drag = pan</span>
+                </div>
+
+                <div class="hudBar">
+                    <button class="btn small" id="btnAuto">Auto</button>
+                    <button class="btn small" id="btnReset">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="drawerHandle" id="drawerHandle" title="Open menu">
+            <div class="vert">MENU</div>
+        </div>
+
+        <aside class="drawer" id="drawer" aria-label="Menu">
+            <div class="drawerHeader">
+                <div style="color:var(--muted);font-size:12px;font-weight:800;">Settings</div>
+                <button class="btn small" id="btnClose">Close</button>
+            </div>
+
+            <div class="drawerBody">
+
+                <div class="card">
+                    <div class="ch">
+                        <div>Export</div>
+                        <div class="mono" id="rxInfo">—</div>
+                    </div>
+                    <div class="cb">
+                        <div class="row">
+                            <button id="btnCSV">Save CSV</button>
+                            <button id="btnPNG">Save PNG</button>
+                        </div>
+                        <div class="hint">PNG saves exactly what is on screen (Time or FFT).</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="ch">
+                        <div>Visual</div>
+                        <div></div>
+                    </div>
+                    <div class="cb">
+                        <div class="row">
+                            <label><input type="checkbox" id="chkGrid" checked> Grid</label>
+                        </div>
+                        <div class="row">
+                            <label>Trigger (V)
+                                <input id="trig" type="number" step="0.01" value="0.00" style="width:110px">
+                            </label>
+                            <label>FFT Window
+                                <select id="fftWin">
+                                    <option value="hann" selected>Hann</option>
+                                    <option value="rect">Rectangular</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="row">
+                            <button id="btnFitX">Fit X</button>
+                            <button id="btnFitY">Fit Y</button>
+                            <button id="btnClear">Clear Capture</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="ch">
+                        <div>Serial Log</div>
+                        <label style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="chkShowLog"> Show
+                        </label>
+                    </div>
+                    <div class="cb" id="logBox" style="display:none">
+                        <div class="row">
+                            <button id="btnCopyLog">Copy</button>
+                            <button id="btnClearLog">Clear</button>
+                        </div>
+                        <textarea id="log" spellcheck="false" placeholder="Lines received from serial..."></textarea>
+                        <div class="hint">Keeps only recent lines to avoid lag.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="ch">
+                        <div>Test Without Serial (Parser)</div>
+                        <label style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="chkShowOffline"> Show
+                        </label>
+                    </div>
+                    <div class="cb" id="offlineBox" style="display:none">
+                        <textarea id="paste" spellcheck="false" placeholder="Paste a DSO dump here..."></textarea>
+                        <div class="row">
+                            <button id="btnParse">Parse</button>
+                            <button id="btnExample">Load Example</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hint">Tip: click the MENU tab on the right to open this menu.</div>
+
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        (() => {
+            const $ = (id) => document.getElementById(id);
+            const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+            const isNum = (x) => Number.isFinite(x);
+
+            function fmtSI(x, unit) {
+                if (!isNum(x)) return "—";
+                const ax = Math.abs(x);
+                const table = [
+                    { k: 1e-12, s: "p" }, { k: 1e-9, s: "n" }, { k: 1e-6, s: "µ" }, { k: 1e-3, s: "m" },
+                    { k: 1, s: "" }, { k: 1e3, s: "k" }, { k: 1e6, s: "M" }, { k: 1e9, s: "G" },
+                ];
+                let best = table[4];
+                for (const t of table) if (ax >= t.k) best = t;
+                const v = x / best.k;
+                const dec = ax < 1 ? 3 : ax < 10 ? 3 : ax < 100 ? 2 : 2;
+                return `${v.toFixed(dec)} ${best.s}${unit}`;
+            }
+            const fmtV = (x) => isNum(x) ? `${x.toFixed(3)} V` : "—";
+            const fmtHz = (x) => fmtSI(x, "Hz");
+
+            function nowStr() { return new Date().toLocaleTimeString(); }
+
+            const state = {
+                port: null,
+                reader: null,
+                connected: false,
+                connecting: false,
+
+                collecting: false,
+                current: { meta: {}, xs: [], ys: [] },
+                lastCapture: null,
+
+                view: { xMin: 0, xMax: 1, yMin: -1, yMax: 1 },
+                showGrid: true,
+                trigLevel: 0.0,
+                fftWindow: "hann",
+                viewMode: "time",
+
+                cursorT: false,
+                cursorV: false,
+                curs: { t1: null, t2: null, v1: null, v2: null, dragging: null },
+
+                fft: { freqs: [], mags: [], peakHz: null },
+                fftCross: { on: false, x: 0, y: 0, f: 0, db: 0, idx: -1 },
+
+                logLines: [],
+                logMaxLines: 2500,
+
+                rxLines: 0,
+            };
+
+            // Elements
+            const scope = $("scope");
+            const ctx = scope.getContext("2d");
+
+            const btnConn = $("btnConn");
+            const dot = $("dot");
+            const statusText = $("statusText");
+
+            const tabTime = $("tabTime");
+            const tabFFT = $("tabFFT");
+
+            const drawerHandle = $("drawerHandle");
+            const btnClose = $("btnClose");
+
+            const toast = $("toast");
+            const toastTitle = $("toastTitle");
+            const toastSub = $("toastSub");
+
+            const cursorHUD = $("cursorHUD");
+            const c_dt = $("c_dt");
+            const c_invdt = $("c_invdt");
+            const c_dv = $("c_dv");
+
+            const measMini = $("measMini");
+            const measPanel = $("measPanel");
+            const measBody = $("measBody");
+            const capInfo = $("capInfo");
+            const btnMeasClose = $("btnMeasClose");
+
+            const fftTip = $("fftTip");
+
+            const rxInfo = $("rxInfo");
+
+            const chk_t = $("chk_t");
+            const chk_v = $("chk_v");
+            const tgl_t = $("tgl_t");
+            const tgl_v = $("tgl_v");
+
+            const hudTime = $("hudTime");
+            const hudFFT = $("hudFFT");
+            const fftWinBottom = $("fftWinBottom");
+
+            const btnAuto = $("btnAuto");
+            const btnReset = $("btnReset");
+
+            const chkGrid = $("chkGrid");
+            const trigIn = $("trig");
+            const fftWinSel = $("fftWin");
+            const btnFitX = $("btnFitX");
+            const btnFitY = $("btnFitY");
+            const btnClear = $("btnClear");
+
+            const btnCSV = $("btnCSV");
+            const btnPNG = $("btnPNG");
+
+            const chkShowLog = $("chkShowLog");
+            const logBox = $("logBox");
+            const logTA = $("log");
+            const btnCopyLog = $("btnCopyLog");
+            const btnClearLog = $("btnClearLog");
+
+            const chkShowOffline = $("chkShowOffline");
+            const offlineBox = $("offlineBox");
+            const paste = $("paste");
+            const btnParse = $("btnParse");
+            const btnExample = $("btnExample");
+
+            function setStatus(ok, text) {
+                dot.className = "dot " + (ok ? "ok" : "bad");
+                statusText.textContent = text;
+            }
+
+            function showToast(title, sub) {
+                toastTitle.textContent = title;
+                toastSub.textContent = sub;
+                toast.classList.add("show");
+                clearTimeout(showToast._t);
+                showToast._t = setTimeout(() => toast.classList.remove("show"), 1400);
+            }
+
+            // Drawer
+            function setDrawer(open) {
+                document.body.classList.toggle("drawer-open", open);
+                drawerHandle.style.display = open ? "none" : "";
+                draw();
+            }
+            drawerHandle.addEventListener("click", () => setDrawer(true));
+            btnClose.addEventListener("click", () => setDrawer(false));
+
+            // Measurements panel
+            function openMeas() {
+                measPanel.style.display = "block";
+                measMini.style.display = "none";
+                refreshMeasurementsUI();
+            }
+            function closeMeas() {
+                measPanel.style.display = "none";
+                measMini.style.display = "flex";
+            }
+            measMini.addEventListener("click", openMeas);
+            btnMeasClose.addEventListener("click", closeMeas);
+            closeMeas();
+
+            // Tabs
+            function setViewMode(mode) {
+                state.viewMode = mode;
+                tabTime.classList.toggle("active", mode === "time");
+                tabFFT.classList.toggle("active", mode === "fft");
+                tabTime.setAttribute("aria-selected", mode === "time" ? "true" : "false");
+                tabFFT.setAttribute("aria-selected", mode === "fft" ? "true" : "false");
+
+                hudTime.style.display = (mode === "time") ? "flex" : "none";
+                hudFFT.style.display = (mode === "fft") ? "flex" : "none";
+
+                updateCursorHUDVisibility();
+                if (state.lastCapture) computeAll(state.lastCapture);
+                draw();
+            }
+            tabTime.addEventListener("click", () => setViewMode("time"));
+            tabFFT.addEventListener("click", () => setViewMode("fft"));
+
+            // Cursor toggles
+            function syncCursorToggles() {
+                tgl_t.classList.toggle("on", chk_t.checked);
+                tgl_v.classList.toggle("on", chk_v.checked);
+            }
+            function applyCursorToggle() {
+                state.cursorT = chk_t.checked;
+                state.cursorV = chk_v.checked;
+                syncCursorToggles();
+                updateCursorHUDVisibility();
+                if (state.lastCapture) computeAll(state.lastCapture);
+                draw();
+            }
+            chk_t.addEventListener("change", applyCursorToggle);
+            chk_v.addEventListener("change", applyCursorToggle);
+            syncCursorToggles();
+
+            function updateCursorHUDVisibility() {
+                const shouldShow = (state.viewMode === "time") && (state.cursorT || state.cursorV);
+                cursorHUD.style.display = shouldShow ? "grid" : "none";
+            }
+
+            // Visual controls
+            chkGrid.addEventListener("change", () => { state.showGrid = chkGrid.checked; draw(); });
+            trigIn.addEventListener("change", () => {
+                state.trigLevel = Number(trigIn.value) || 0;
+                if (state.lastCapture) { computeAll(state.lastCapture); draw(); }
+            });
+
+            // FFT window sync
+            function setFFTWindow(val) {
+                state.fftWindow = val;
+                fftWinSel.value = val;
+                fftWinBottom.value = val;
+                if (state.lastCapture) { computeAll(state.lastCapture); draw(); }
+            }
+            fftWinSel.addEventListener("change", () => setFFTWindow(fftWinSel.value));
+            fftWinBottom.addEventListener("change", () => setFFTWindow(fftWinBottom.value));
+
+            // Log/offline panels
+            chkShowLog.addEventListener("change", () => {
+                logBox.style.display = chkShowLog.checked ? "" : "none";
+                if (chkShowLog.checked) {
+                    logTA.value = state.logLines.join("\n");
+                    logTA.scrollTop = logTA.scrollHeight;
+                }
+            });
+            chkShowOffline.addEventListener("change", () => {
+                offlineBox.style.display = chkShowOffline.checked ? "" : "none";
+            });
+
+            function logLine(line) {
+                state.logLines.push(line);
+                if (state.logLines.length > state.logMaxLines) {
+                    state.logLines.splice(0, state.logLines.length - state.logMaxLines);
+                }
+                if (chkShowLog.checked) {
+                    logTA.value = state.logLines.join("\n");
+                    logTA.scrollTop = logTA.scrollHeight;
+                }
+            }
+
+            btnCopyLog.addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(logTA.value || "");
+                    showToast("Copied", "Serial log copied");
+                } catch {
+                    alert("Could not copy (browser permission).");
+                }
+            });
+            btnClearLog.addEventListener("click", () => {
+                state.logLines = [];
+                logTA.value = "";
+                showToast("Log Cleared", "History deleted");
+            });
+
+            // Parser
+            function parseDump(text) {
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                const meta = {};
+                const xs = [];
+                const ys = [];
+                for (const line of lines) {
+                    const m = line.match(/^(\d+)\s*,\s*(\d+)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*$/);
+                    if (m) {
+                        xs.push(Number(m[2]) * 1e-6);
+                        ys.push(Number(m[3]));
+                        continue;
+                    }
+                    const h = line.split(",");
+                    if (h.length >= 2) meta[h[0].trim()] = h.slice(1).join(",").trim();
+                }
+                return { meta, xs, ys };
+            }
+
+            btnParse.addEventListener("click", () => {
+                const cap = parseDump(paste.value || "");
+                if (!cap.ys.length) { alert("No sample lines found in i,t,v format."); return; }
+
+                const trigTxt = cap.meta["TriggerLevel"] || cap.meta["Trigger Level"];
+                if (trigTxt) {
+                    const tv = Number(String(trigTxt).replace(/[^\d.\-+]/g, ""));
+                    if (Number.isFinite(tv)) {
+                        state.trigLevel = tv;
+                        trigIn.value = state.trigLevel.toFixed(2);
+                    }
+                }
+
+                state.lastCapture = cap;
+                autoView(cap);
+                computeAll(cap);
+                draw();
+
+                capInfo.textContent = `${cap.ys.length} pts • offline`;
+                showToast("Capture (Offline)", `${cap.ys.length} points loaded`);
+            });
+
+            btnExample.addEventListener("click", () => {
+                paste.value =
+                    `Couple,DC
+VPos,  0.00V
+Timebase,0.2ms
+TriggerMode,AUTO
+TriggerSlope,Falling
+TriggerLevel,  0.00V
+RecordLength,01024
+SampleInterval,00008us
+00000,0000000000,-0.8113037
+00001,0000000008, 2.4339111
+00002,0000000016, 2.4339111
+00003,0000000024, 2.4339111
+00004,0000000032, 2.4339111
+00005,0000000040, 2.4339111
+00006,0000000048, 2.4744763
+00007,0000000056, 2.4339111
+00008,0000000064, 2.4339111
+00009,0000000072, 2.4339111
+00010,0000000080, 2.4339111
+00011,0000000088, 2.4339111
+00012,0000000096, 2.4744763
+00013,0000000104,-0.8924340`;
+                showToast("Example Loaded", "Click Parse");
+            });
+
+            // Serial connect/disconnect
+            let lineBuf = "";
+
+            async function connect() {
+                if (!("serial" in navigator)) {
+                    alert("Your browser does not support Web Serial. Use Chrome/Edge on desktop (HTTPS or localhost).");
+                    return;
+                }
+                state.connecting = true;
+                btnConn.disabled = true;
+                btnConn.textContent = "Connecting…";
+                try {
+                    state.port = await navigator.serial.requestPort();
+                    await state.port.open({ baudRate: 115200 });
+
+                    const decoder = new TextDecoderStream();
+                    state.port.readable.pipeTo(decoder.writable);
+                    state.reader = decoder.readable.getReader();
+
+                    state.connected = true;
+                    setStatus(true, "Connected");
+                    btnConn.classList.remove("primary");
+                    btnConn.classList.add("danger");
+                    btnConn.textContent = "Disconnect";
+                    btnConn.disabled = false;
+
+                    showToast("Connected", "Hold the SELECT button for 3 seconds on DSO to send dump");
+                    readLoop();
+                } catch (e) {
+                    console.error(e);
+                    setStatus(false, "Failed to Connect");
+                    btnConn.classList.add("primary");
+                    btnConn.classList.remove("danger");
+                    btnConn.textContent = "Connect";
+                    btnConn.disabled = false;
+                    alert("Connection failed. Check the console (F12).");
+                } finally {
+                    state.connecting = false;
+                }
+            }
+
+            async function disconnect() {
+                btnConn.disabled = true;
+                btnConn.textContent = "Disconnecting…";
+                try {
+                    if (state.reader) {
+                        try { await state.reader.cancel(); } catch { }
+                        state.reader.releaseLock();
+                        state.reader = null;
+                    }
+                    if (state.port) {
+                        try { await state.port.close(); } catch { }
+                        state.port = null;
+                    }
+                } finally {
+                    state.connected = false;
+                    setStatus(false, "Disconnected");
+                    btnConn.classList.add("primary");
+                    btnConn.classList.remove("danger");
+                    btnConn.textContent = "Connect";
+                    btnConn.disabled = false;
+                    showToast("Disconnected", "Serial port closed");
+                }
+            }
+
+            btnConn.addEventListener("click", () => {
+                if (state.connecting) return;
+                if (state.connected) disconnect();
+                else connect();
+            });
+
+            function startCollectingIfNeeded() {
+                if (!state.collecting) {
+                    state.collecting = true;
+                    state.current = { meta: {}, xs: [], ys: [] };
+                }
+            }
+
+            function handleLine(line) {
+                if (!line) return;
+
+                state.rxLines++;
+                if (state.rxLines % 50 === 0) rxInfo.textContent = `RX ${state.rxLines} lines`;
+                logLine(`[${nowStr()}] ${line}`);
+
+                const dm = line.match(/^(\d+)\s*,\s*(\d+)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*$/);
+                if (dm) {
+                    startCollectingIfNeeded();
+                    const idx = Number(dm[1]);
+                    const tRaw = Number(dm[2]);
+                    const v = Number(dm[3]);
+                    state.current.xs.push(tRaw * 1e-6);
+                    state.current.ys.push(v);
+
+                    if (idx === 1023) finalizeCapture("idx1023");
+                    return;
+                }
+
+                const parts = line.split(",");
+                if (parts.length >= 2) {
+                    startCollectingIfNeeded();
+                    state.current.meta[parts[0].trim()] = parts.slice(1).join(",").trim();
+                    return;
+                }
+            }
+
+            function finalizeCapture(reason) {
+                if (!state.collecting) return;
+                state.collecting = false;
+
+                const cap = { meta: state.current.meta, xs: state.current.xs.slice(), ys: state.current.ys.slice() };
+                if (!cap.ys.length) return;
+
+                const trigTxt = cap.meta["TriggerLevel"] || cap.meta["Trigger Level"];
+                if (trigTxt) {
+                    const tv = Number(String(trigTxt).replace(/[^\d.\-+]/g, ""));
+                    if (Number.isFinite(tv)) {
+                        state.trigLevel = tv;
+                        trigIn.value = state.trigLevel.toFixed(2);
+                    }
+                }
+
+                state.lastCapture = cap;
+                autoView(cap);
+                computeAll(cap);
+                draw();
+
+                capInfo.textContent = `${cap.ys.length} pts • ${reason}`;
+                showToast("New Capture", `${cap.ys.length} points`);
+            }
+
+            async function readLoop() {
+                try {
+                    while (state.connected && state.reader) {
+                        const { value, done } = await state.reader.read();
+                        if (done) break;
+                        if (!value) continue;
+
+                        lineBuf += value;
+                        const lines = lineBuf.split(/\r?\n/);
+                        lineBuf = lines.pop() || "";
+                        for (const l of lines) handleLine(l.trim());
+                    }
+                } catch (e) {
+                    console.error(e);
+                    setStatus(false, "Serial Read Error");
+                    showToast("Error", "Failed reading serial (check F12)");
+                    if (state.connected) disconnect();
+                }
+            }
+
+            // Measurements helpers
+            function computeBasic(xs, ys) {
+                let vmin = Infinity, vmax = -Infinity, sum = 0, sum2 = 0;
+                for (const v of ys) {
+                    if (v < vmin) vmin = v;
+                    if (v > vmax) vmax = v;
+                    sum += v;
+                    sum2 += v * v;
+                }
+                const n = ys.length || 1;
+                const vavg = sum / n;
+                const vrms = Math.sqrt(sum2 / n);
+                const vpp = vmax - vmin;
+
+                let fs = null, dt = null;
+                if (xs.length >= 2) {
+                    let acc = 0;
+                    for (let i = 1; i < xs.length; i++) acc += (xs[i] - xs[i - 1]);
+                    dt = acc / (xs.length - 1);
+                    if (dt > 0) fs = 1 / dt;
+                }
+                return { vmin, vmax, vpp, vavg, vrms, fs, dt };
+            }
+
+            function computeFreqDuty(xs, ys, thr) {
+                if (xs.length < 4) return { freq: null, duty: null, period: null };
+
+                let vmin = Infinity, vmax = -Infinity;
+                for (const v of ys) { if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
+                const h = Math.max(1e-6, (vmax - vmin) * 0.02);
+                const thrHi = thr + h;
+                const thrLo = thr - h;
+
+                const risingTimes = [];
+                let wasLow = ys[0] < thrLo;
+
+                for (let i = 1; i < ys.length; i++) {
+                    const v = ys[i];
+                    if (wasLow && v > thrHi) {
+                        const v0 = ys[i - 1], t0 = xs[i - 1];
+                        const v1 = v, t1 = xs[i];
+                        const a = (thr - v0) / (v1 - v0 || 1e-12);
+                        const tc = t0 + clamp(a, 0, 1) * (t1 - t0);
+                        risingTimes.push(tc);
+                        wasLow = false;
+                    }
+                    if (v < thrLo) wasLow = true;
+                }
+
+                if (risingTimes.length < 2) return { freq: null, duty: null, period: null };
+
+                const periods = [];
+                for (let i = 1; i < risingTimes.length; i++) periods.push(risingTimes[i] - risingTimes[i - 1]);
+                const meanP = periods.reduce((a, b) => a + b, 0) / periods.length;
+                const freq = meanP > 0 ? 1 / meanP : null;
+
+                let duty = null;
+                if (meanP && meanP > 0) {
+                    const tStart = risingTimes[0];
+                    const tEnd = risingTimes[risingTimes.length - 1];
+                    let highTime = 0;
+                    for (let i = 1; i < ys.length; i++) {
+                        const t0 = xs[i - 1], t1 = xs[i];
+                        if (t1 <= tStart || t0 >= tEnd) continue;
+                        const tt0 = Math.max(t0, tStart);
+                        const tt1 = Math.min(t1, tEnd);
+                        const mid = (ys[i - 1] + ys[i]) * 0.5;
+                        if (mid > thr) highTime += (tt1 - tt0);
+                    }
+                    const total = (tEnd - tStart);
+                    duty = total > 0 ? (highTime / total) : null;
+                }
+                return { freq, duty, period: meanP };
+            }
+
+            // FFT
+            function fftRadix2(re, im) {
+                const n = re.length;
+                let j = 0;
+                for (let i = 0; i < n; i++) {
+                    if (i < j) { [re[i], re[j]] = [re[j], re[i]];[im[i], im[j]] = [im[j], im[i]]; }
+                    let m = n >> 1;
+                    while (m >= 1 && j >= m) { j -= m; m >>= 1; }
+                    j += m;
+                }
+                for (let len = 2; len <= n; len <<= 1) {
+                    const ang = -2 * Math.PI / len;
+                    const wlenRe = Math.cos(ang), wlenIm = Math.sin(ang);
+                    for (let i = 0; i < n; i += len) {
+                        let wRe = 1, wIm = 0;
+                        for (let k = 0; k < len / 2; k++) {
+                            const uRe = re[i + k], uIm = im[i + k];
+                            const vRe = re[i + k + len / 2] * wRe - im[i + k + len / 2] * wIm;
+                            const vIm = re[i + k + len / 2] * wIm + im[i + k + len / 2] * wRe;
+                            re[i + k] = uRe + vRe;
+                            im[i + k] = uIm + vIm;
+                            re[i + k + len / 2] = uRe - vRe;
+                            im[i + k + len / 2] = uIm - vIm;
+                            const nwRe = wRe * wlenRe - wIm * wlenIm;
+                            const nwIm = wRe * wlenIm + wIm * wlenRe;
+                            wRe = nwRe; wIm = nwIm;
+                        }
+                    }
+                }
+            }
+
+            function computeFFT(ys, fs) {
+                const n = ys.length;
+                const N = 1 << Math.floor(Math.log2(n));
+                if (N < 64) { state.fft = { freqs: [], mags: [], peakHz: null }; return; }
+
+                const re = new Array(N).fill(0);
+                const im = new Array(N).fill(0);
+
+                for (let i = 0; i < N; i++) {
+                    const w = (state.fftWindow === "hann")
+                        ? (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1)))
+                        : 1.0;
+                    re[i] = ys[i] * w;
+                }
+                fftRadix2(re, im);
+
+                const freqs = [];
+                const mags = [];
+                let peakHz = null, peakMag = -Infinity;
+                for (let k = 1; k < N / 2; k++) {
+                    const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / (N / 2);
+                    const hz = (k * fs) / N;
+                    const db = 20 * Math.log10(mag + 1e-12);
+                    freqs.push(hz);
+                    mags.push(db);
+                    if (db > peakMag) { peakMag = db; peakHz = hz; }
+                }
+                state.fft = { freqs, mags, peakHz };
+            }
+
+            function setCursorHUD(dt, invdt, dv) {
+                c_dt.textContent = dt ?? "—";
+                c_invdt.textContent = invdt ?? "—";
+                c_dv.textContent = dv ?? "—";
+            }
+
+            function binSearchNearest(arr, x) {
+                let lo = 0, hi = arr.length - 1;
+                if (hi < 0) return -1;
+                if (x <= arr[0]) return 0;
+                if (x >= arr[hi]) return hi;
+                while (hi - lo > 1) {
+                    const mid = (lo + hi) >> 1;
+                    if (arr[mid] <= x) lo = mid; else hi = mid;
+                }
+                return (Math.abs(arr[lo] - x) <= Math.abs(arr[hi] - x)) ? lo : hi;
+            }
+
+            function showFFTTip(px, py, text) {
+                fftTip.textContent = text;
+                fftTip.style.display = "block";
+                fftTip.style.left = `${px + 12}px`;
+                fftTip.style.top = `${py + 12}px`;
+            }
+
+            function hideFFTTip() {
+                fftTip.style.display = "none";
+            }
+
+            function renderMeasPairs(pairs) {
+                measBody.innerHTML = "";
+                if (!pairs.length) {
+                    const one = document.createElement("div");
+                    one.className = "measLine";
+                    one.style.gridColumn = "1 / -1";
+                    one.innerHTML = `<div class="k">Info</div><div class="v">No data</div>`;
+                    measBody.appendChild(one);
+                    return;
+                }
+                for (const [k, v] of pairs) {
+                    const line = document.createElement("div");
+                    line.className = "measLine";
+                    const kk = document.createElement("div");
+                    kk.className = "k";
+                    kk.textContent = k;
+                    const vv = document.createElement("div");
+                    vv.className = "v";
+                    vv.textContent = v;
+                    line.appendChild(kk);
+                    line.appendChild(vv);
+                    measBody.appendChild(line);
+                }
+            }
+
+            function refreshMeasurementsUI() {
+                if (!state.lastCapture) {
+                    capInfo.textContent = "—";
+                    renderMeasPairs([]);
+                    return;
+                }
+                if (!capInfo.textContent || capInfo.textContent === "—") {
+                    capInfo.textContent = `${state.lastCapture.ys.length} pts`;
+                }
+            }
+
+            function computeAll(cap) {
+                const { xs, ys } = cap;
+                const b = computeBasic(xs, ys);
+                const fd = computeFreqDuty(xs, ys, state.trigLevel);
+
+                if (b.fs && ys.length >= 64) computeFFT(ys, b.fs);
+                else state.fft = { freqs: [], mags: [], peakHz: null };
+
+                let dt = null, invdt = null, dv = null;
+                if (state.viewMode === "time") {
+                    if (state.cursorT && isNum(state.curs.t1) && isNum(state.curs.t2) && state.curs.t1 !== state.curs.t2) {
+                        const d = Math.abs(state.curs.t2 - state.curs.t1);
+                        dt = fmtSI(d, "s");
+                        invdt = fmtHz(1 / d);
+                    }
+                    if (state.cursorV && isNum(state.curs.v1) && isNum(state.curs.v2) && state.curs.v1 !== state.curs.v2) {
+                        dv = fmtV(Math.abs(state.curs.v2 - state.curs.v1));
+                    }
+                }
+                setCursorHUD(dt, invdt, dv);
+                updateCursorHUDVisibility();
+
+                if (state.viewMode === "time") {
+                    const pairs = [
+                        ["Vpp", fmtV(b.vpp)],
+                        ["Freq", fd.freq ? fmtHz(fd.freq) : "—"],
+                        ["Vrms", fmtV(b.vrms)],
+                        ["Vavg", fmtV(b.vavg)],
+                        ["Vmin", fmtV(b.vmin)],
+                        ["Vmax", fmtV(b.vmax)],
+                        ["Duty", (fd.duty != null) ? `${(fd.duty * 100).toFixed(2)} %` : "—"],
+                        ["Period", fd.period ? fmtSI(fd.period, "s") : "—"],
+                    ];
+                    renderMeasPairs(pairs);
+                } else {
+                    const peak = state.fft.peakHz ? fmtHz(state.fft.peakHz) : "—";
+                    const fsTxt = b.fs ? fmtHz(b.fs) : "—";
+                    const pairs = [
+                        ["Fs (estim.)", fsTxt],
+                        ["FFT Peak", peak],
+                        ["Window", (state.fftWindow === "hann") ? "Hann" : "Rect"],
+                    ];
+                    renderMeasPairs(pairs);
+                }
+
+                if (measPanel.style.display !== "none") refreshMeasurementsUI();
+            }
+
+            // View / Plot
+            function resizeCanvas(c) {
+                const dpr = devicePixelRatio || 1;
+                const rect = c.getBoundingClientRect();
+                c.width = Math.max(2, Math.floor(rect.width * dpr));
+                c.height = Math.max(2, Math.floor(rect.height * dpr));
+            }
+
+            function worldToScreen(x, y, canvas, view) {
+                const w = canvas.width, h = canvas.height;
+                const sx = (x - view.xMin) / (view.xMax - view.xMin) * w;
+                const sy = h - (y - view.yMin) / (view.yMax - view.yMin) * h;
+                return [sx, sy];
+            }
+            function screenToWorld(sx, sy, canvas, view) {
+                const w = canvas.width, h = canvas.height;
+                const x = view.xMin + (sx / w) * (view.xMax - view.xMin);
+                const y = view.yMin + ((h - sy) / h) * (view.yMax - view.yMin);
+                return [x, y];
+            }
+
+            function drawGrid() {
+                if (!state.showGrid) return;
+                const w = scope.width, h = scope.height;
+                ctx.save();
+                ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid").trim() || "#233244";
+                ctx.lineWidth = 1;
+
+                for (let i = 1; i < 10; i++) {
+                    const x = (i / 10) * w;
+                    ctx.globalAlpha = (i === 5) ? 0.6 : 0.25;
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (let i = 1; i < 8; i++) {
+                    const y = (i / 8) * h;
+                    ctx.globalAlpha = (i === 4) ? 0.6 : 0.25;
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            function autoView(cap) {
+                const xs = cap.xs, ys = cap.ys;
+                const xMin = xs[0], xMax = xs[xs.length - 1];
+                let yMin = Infinity, yMax = -Infinity;
+                for (const v of ys) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+                const pad = Math.max(1e-6, (yMax - yMin) * 0.12);
+                state.view = { xMin, xMax, yMin: yMin - pad, yMax: yMax + pad };
+
+                if (!isNum(state.curs.t1) || !isNum(state.curs.t2)) {
+                    state.curs.t1 = xMin + (xMax - xMin) * 0.25;
+                    state.curs.t2 = xMin + (xMax - xMin) * 0.75;
+                }
+                if (!isNum(state.curs.v1) || !isNum(state.curs.v2)) {
+                    state.curs.v1 = yMin + (yMax - yMin) * 0.25;
+                    state.curs.v2 = yMin + (yMax - yMin) * 0.75;
+                }
+            }
+
+            function drawTime() {
+                ctx.clearRect(0, 0, scope.width, scope.height);
+
+                const cap = state.lastCapture;
+                if (!cap) {
+                    ctx.fillStyle = "#9aa8b6";
+                    ctx.font = `${Math.floor(scope.height / 18)}px system-ui`;
+                    ctx.fillText("No data. Connect DSO via USB and hold SELECT button for 3 seconds to send dump.", 18, 44);
+                    return;
+                }
+
+                drawGrid();
+
+                const { xs, ys } = cap;
+                const v = state.view;
+
+                ctx.save();
+                ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--line").trim() || "#7fb4ff";
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.95;
+                ctx.beginPath();
+                for (let i = 0; i < xs.length; i++) {
+                    const [sx, sy] = worldToScreen(xs[i], ys[i], scope, v);
+                    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.save();
+                ctx.strokeStyle = "#ffcc66";
+                ctx.globalAlpha = 0.6;
+                ctx.setLineDash([7, 7]);
+                const [, syT] = worldToScreen(v.xMin, state.trigLevel, scope, v);
+                ctx.beginPath(); ctx.moveTo(0, syT); ctx.lineTo(scope.width, syT); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+
+                drawCursors();
+            }
+
+            function drawFFT() {
+                ctx.clearRect(0, 0, scope.width, scope.height);
+                drawGrid();
+
+                const cap = state.lastCapture;
+                if (!cap || !state.fft.freqs.length) {
+                    ctx.fillStyle = "#9aa8b6";
+                    ctx.font = `${Math.floor(scope.height / 18)}px system-ui`;
+                    ctx.fillText("No FFT (needs capture with valid Fs).", 18, 44);
+                    return;
+                }
+
+                const freqs = state.fft.freqs;
+                const mags = state.fft.mags;
+                const w = scope.width, h = scope.height;
+
+                let minDb = Infinity, maxDb = -Infinity;
+                for (const db of mags) { if (db < minDb) minDb = db; if (db > maxDb) maxDb = db; }
+                minDb -= 3; maxDb += 3;
+
+                const fMin = 0;
+                const fMax = freqs[freqs.length - 1] || 1;
+
+                ctx.save();
+                ctx.strokeStyle = "#7fb4ff";
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.95;
+                ctx.beginPath();
+                for (let i = 0; i < freqs.length; i++) {
+                    const x = (freqs[i] - fMin) / (fMax - fMin) * w;
+                    const y = h - (mags[i] - minDb) / (maxDb - minDb) * h;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                if (state.fftCross.on && state.fftCross.idx >= 0) {
+                    const x = clamp(state.fftCross.x, 0, scope.width);
+                    const y = clamp(state.fftCross.y, 0, scope.height);
+
+                    ctx.save();
+                    ctx.strokeStyle = "rgba(231,238,247,0.35)";
+                    ctx.lineWidth = 1;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, scope.height);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(scope.width, y);
+                    ctx.stroke();
+
+                    ctx.fillStyle = "rgba(231,238,247,0.85)";
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    const label = `${fmtHz(state.fftCross.f)}  •  ${state.fftCross.db.toFixed(1)} dB`;
+                    ctx.font = `${Math.max(12, Math.floor(scope.height / 55))}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+                    const pad = 6;
+                    const tw = ctx.measureText(label).width;
+                    let lx = x + 10;
+                    let ly = y - 12;
+
+                    if (lx + tw + pad * 2 > scope.width) lx = x - (tw + pad * 2 + 10);
+                    if (ly - 18 < 0) ly = y + 18;
+
+                    ctx.fillStyle = "rgba(18,26,35,0.92)";
+                    ctx.strokeStyle = "rgba(35,50,68,0.80)";
+                    ctx.lineWidth = 1;
+                    const bh = 22;
+                    ctx.beginPath();
+                    roundRect(ctx, lx, ly - bh + 2, tw + pad * 2, bh, 10);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = "rgba(231,238,247,0.95)";
+                    ctx.fillText(label, lx + pad, ly - 6);
+
+                    ctx.restore();
+                }
+
+            }
+
+            function drawCursors() {
+                if (state.viewMode !== "time") return;
+
+                const v = state.view;
+                ctx.save();
+                ctx.lineWidth = 2;
+
+                if (state.cursorT && isNum(state.curs.t1) && isNum(state.curs.t2)) {
+                    const [sx1] = worldToScreen(state.curs.t1, v.yMin, scope, v);
+                    const [sx2] = worldToScreen(state.curs.t2, v.yMin, scope, v);
+                    ctx.strokeStyle = "#5ee0a6";
+                    ctx.globalAlpha = 0.85;
+                    ctx.beginPath(); ctx.moveTo(sx1, 0); ctx.lineTo(sx1, scope.height); ctx.stroke();
+                    ctx.globalAlpha = 0.55;
+                    ctx.beginPath(); ctx.moveTo(sx2, 0); ctx.lineTo(sx2, scope.height); ctx.stroke();
+                }
+
+                if (state.cursorV && isNum(state.curs.v1) && isNum(state.curs.v2)) {
+                    const [, sy1] = worldToScreen(v.xMin, state.curs.v1, scope, v);
+                    const [, sy2] = worldToScreen(v.xMin, state.curs.v2, scope, v);
+                    ctx.strokeStyle = "#ff6b6b";
+                    ctx.globalAlpha = 0.85;
+                    ctx.beginPath(); ctx.moveTo(0, sy1); ctx.lineTo(scope.width, sy1); ctx.stroke();
+                    ctx.globalAlpha = 0.55;
+                    ctx.beginPath(); ctx.moveTo(0, sy2); ctx.lineTo(scope.width, sy2); ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            function draw() {
+                resizeCanvas(scope);
+                if (state.viewMode === "time") drawTime();
+                else drawFFT();
+            }
+            window.addEventListener("resize", draw);
+
+            // Interaction
+            function near(a, b, px) { return Math.abs(a - b) <= px; }
+
+            function pickCursor(mx, my) {
+                if (state.viewMode !== "time") return null;
+
+                const v = state.view;
+                const dpr = devicePixelRatio || 1;
+                const px = 8 * dpr;
+
+                if (state.cursorT && isNum(state.curs.t1) && isNum(state.curs.t2)) {
+                    const [sx1] = worldToScreen(state.curs.t1, v.yMin, scope, v);
+                    const [sx2] = worldToScreen(state.curs.t2, v.yMin, scope, v);
+                    if (near(mx, sx1, px)) return "t1";
+                    if (near(mx, sx2, px)) return "t2";
+                }
+                if (state.cursorV && isNum(state.curs.v1) && isNum(state.curs.v2)) {
+                    const [, sy1] = worldToScreen(v.xMin, state.curs.v1, scope, v);
+                    const [, sy2] = worldToScreen(v.xMin, state.curs.v2, scope, v);
+                    if (near(my, sy1, px)) return "v1";
+                    if (near(my, sy2, px)) return "v2";
+                }
+                return null;
+            }
+
+            function roundRect(ctx, x, y, w, h, r) {
+                const rr = Math.min(r, w / 2, h / 2);
+                ctx.moveTo(x + rr, y);
+                ctx.arcTo(x + w, y, x + w, y + h, rr);
+                ctx.arcTo(x + w, y + h, x, y + h, rr);
+                ctx.arcTo(x, y + h, x, y, rr);
+                ctx.arcTo(x, y, x + w, y, rr);
+                ctx.closePath();
+            }
+
+            let draggingPan = false;
+            let lastMx = 0, lastMy = 0;
+
+            scope.addEventListener("mousedown", (ev) => {
+                if (!state.lastCapture) return;
+                const rect = scope.getBoundingClientRect();
+                const dpr = devicePixelRatio || 1;
+                const mx = (ev.clientX - rect.left) * dpr;
+                const my = (ev.clientY - rect.top) * dpr;
+
+                const pick = pickCursor(mx, my);
+                if (pick) {
+                    state.curs.dragging = pick;
+                    scope.style.cursor = "grabbing";
+                } else {
+                    draggingPan = true;
+                    scope.style.cursor = "grabbing";
+                }
+                lastMx = mx; lastMy = my;
+            });
+
+            window.addEventListener("mouseup", () => {
+                state.curs.dragging = null;
+                draggingPan = false;
+                scope.style.cursor = "default";
+            });
+
+            scope.addEventListener("mousemove", (ev) => {
+                if (!state.lastCapture) return;
+                const rect = scope.getBoundingClientRect();
+                const dpr = devicePixelRatio || 1;
+                const mx = (ev.clientX - rect.left) * dpr;
+                const my = (ev.clientY - rect.top) * dpr;
+
+                if (!draggingPan && !state.curs.dragging) {
+                    const pick = pickCursor(mx, my);
+                    scope.style.cursor = pick ? "crosshair" : "default";
+                }
+
+                if (state.curs.dragging) {
+                    const [wx, wy] = screenToWorld(mx, my, scope, state.view);
+                    if (state.curs.dragging === "t1") state.curs.t1 = wx;
+                    if (state.curs.dragging === "t2") state.curs.t2 = wx;
+                    if (state.curs.dragging === "v1") state.curs.v1 = wy;
+                    if (state.curs.dragging === "v2") state.curs.v2 = wy;
+                    computeAll(state.lastCapture);
+                    draw();
+                    return;
+                }
+
+                if (draggingPan) {
+                    const dx = mx - lastMx;
+                    const dy = my - lastMy;
+                    const v = state.view;
+                    const xSpan = (v.xMax - v.xMin);
+                    const ySpan = (v.yMax - v.yMin);
+                    const w = scope.width, h = scope.height;
+                    const xShift = -dx / w * xSpan;
+                    const yShift = dy / h * ySpan;
+                    state.view = { ...v, xMin: v.xMin + xShift, xMax: v.xMax + xShift, yMin: v.yMin + yShift, yMax: v.yMax + yShift };
+                    lastMx = mx; lastMy = my;
+                    draw();
+                }
+
+                if (state.viewMode === "fft" && state.fft.freqs && state.fft.freqs.length) {
+                    const px = (ev.clientX - rect.left);
+                    const py = (ev.clientY - rect.top);
+
+                    const freqs = state.fft.freqs;
+                    const mags = state.fft.mags;
+
+                    const fMin = 0;
+                    const fMax = freqs[freqs.length - 1] || 1;
+
+                    const sxCss = mx / dpr;
+                    const t = clamp(sxCss / rect.width, 0, 1);
+                    const f = fMin + t * (fMax - fMin);
+
+                    const idx = binSearchNearest(freqs, f);
+                    const db = mags[idx];
+
+                    let minDb = Infinity, maxDb = -Infinity;
+                    for (const v of mags) { if (v < minDb) minDb = v; if (v > maxDb) maxDb = v; }
+                    minDb -= 3; maxDb += 3;
+
+                    const yNorm = (db - minDb) / (maxDb - minDb);
+                    const y = scope.height - clamp(yNorm, 0, 1) * scope.height;
+
+                    state.fftCross.on = true;
+                    state.fftCross.x = mx;
+                    state.fftCross.y = y;
+                    state.fftCross.f = f;
+                    state.fftCross.db = db;
+                    state.fftCross.idx = idx;
+
+                    hideFFTTip();
+
+                    draw();
+                } else {
+                    state.fftCross.on = false;
+                    hideFFTTip();
+
+                }
+            });
+
+            scope.addEventListener("mouseleave", () => {
+                hideFFTTip();
+                state.fftCross.on = false;
+                draw();
+            });
+
+            scope.addEventListener("wheel", (ev) => {
+                if (!state.lastCapture) return;
+                ev.preventDefault();
+                const rect = scope.getBoundingClientRect();
+                const dpr = devicePixelRatio || 1;
+                const mx = (ev.clientX - rect.left) * dpr;
+                const my = (ev.clientY - rect.top) * dpr;
+
+                const v = state.view;
+                const [wx, wy] = screenToWorld(mx, my, scope, v);
+
+                const zoom = Math.exp((ev.deltaY > 0 ? 1 : -1) * 0.12);
+                let xMin = v.xMin, xMax = v.xMax, yMin = v.yMin, yMax = v.yMax;
+
+                if (state.viewMode === "fft") {
+                    xMin = wx + (xMin - wx) * zoom;
+                    xMax = wx + (xMax - wx) * zoom;
+                } else {
+                    if (ev.shiftKey) {
+                        yMin = wy + (yMin - wy) * zoom;
+                        yMax = wy + (yMax - wy) * zoom;
+                    } else {
+                        xMin = wx + (xMin - wx) * zoom;
+                        xMax = wx + (xMax - wx) * zoom;
+                    }
+                }
+
+                if ((xMax - xMin) < 1e-9) return;
+                if ((yMax - yMin) < 1e-9) return;
+
+                state.view = { xMin, xMax, yMin, yMax };
+                draw();
+            }, { passive: false });
+
+            // Buttons
+            btnAuto.addEventListener("click", () => {
+                if (!state.lastCapture) return;
+                autoView(state.lastCapture);
+                computeAll(state.lastCapture);
+                draw();
+            });
+
+            btnReset.addEventListener("click", () => {
+                if (!state.lastCapture) return;
+                autoView(state.lastCapture);
+                draw();
+            });
+
+            btnFitX.addEventListener("click", () => {
+                if (!state.lastCapture) return;
+                const cap = state.lastCapture;
+                state.view.xMin = cap.xs[0];
+                state.view.xMax = cap.xs[cap.xs.length - 1];
+                draw();
+            });
+
+            btnFitY.addEventListener("click", () => {
+                if (!state.lastCapture) return;
+                const cap = state.lastCapture;
+                let yMin = Infinity, yMax = -Infinity;
+                for (const v of cap.ys) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+                const pad = Math.max(1e-6, (yMax - yMin) * 0.12);
+                state.view.yMin = yMin - pad;
+                state.view.yMax = yMax + pad;
+                draw();
+            });
+
+            btnClear.addEventListener("click", () => {
+                state.lastCapture = null;
+                capInfo.textContent = "—";
+                renderMeasPairs([]);
+                setCursorHUD(null, null, null);
+                updateCursorHUDVisibility();
+                draw();
+                showToast("Cleared", "Capture removed");
+            });
+
+            btnCSV.addEventListener("click", () => {
+                if (!state.lastCapture) return;
+                const cap = state.lastCapture;
+                let out = "";
+                out += "# DSO138mini capture exported\n";
+                for (const k of Object.keys(cap.meta)) out += `# ${k},${cap.meta[k]}\n`;
+                out += "i,t_seconds,v_volts\n";
+                for (let i = 0; i < cap.ys.length; i++) {
+                    out += `${i},${cap.xs[i].toFixed(9)},${cap.ys[i].toFixed(7)}\n`;
+                }
+                const blob = new Blob([out], { type: "text/csv" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "dso138mini_capture.csv";
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+
+            btnPNG.addEventListener("click", () => {
+                const a = document.createElement("a");
+                a.download = (state.viewMode === "time") ? "scope.png" : "fft.png";
+                a.href = scope.toDataURL("image/png");
+                a.click();
+            });
+
+            // Init
+            setStatus(false, "Disconnected");
+            rxInfo.textContent = "—";
+            state.trigLevel = Number(trigIn.value) || 0;
+            state.showGrid = chkGrid.checked;
+            setFFTWindow("hann");
+            setViewMode("time");
+            setDrawer(false);
+            updateCursorHUDVisibility();
+            draw();
+        })();
+    </script>
+
+</body>
+
+</html>
